@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Vanguard | 3D Shooter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        color: white;
+        font-family: 'Orbitron', sans-serif;
+        text-align: center;
+      }
+      h1 { font-size: 3.5rem; margin-bottom: 0.5rem; color: #00ffff; text-shadow: 0 0 20px #00ffff; }
+      p { color: #888; margin-bottom: 2rem; }
+      .controls { margin-bottom: 2rem; color: #555; font-size: 0.9rem; }
+      #loading-container {
+        width: 300px;
+        height: 4px;
+        background: #222;
+        margin-bottom: 2rem;
+        display: none;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #loading-bar {
+        width: 0%;
+        height: 100%;
+        background: #00ffff;
+        box-shadow: 0 0 10px #00ffff;
+        transition: width 0.3s;
+      }
+      #engageBtn {
+        padding: 1.2rem 4rem;
+        font-size: 1.8rem;
+        background: transparent;
+        border: 2px solid #00ffff;
+        color: #00ffff;
+        cursor: pointer;
+        transition: 0.3s;
+        font-family: 'Orbitron', sans-serif;
+      }
+      #crosshair {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 50px;
+        height: 50px;
+        border: 2px solid rgba(0, 255, 255, 0.7);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 50;
+      }
+      /* Horizontal line */
+      #crosshair::before {
+        content: '';
+        position: absolute;
+        top: 50%; left: 0;
+        width: 100%; height: 2px;
+        background: rgba(0,255,255,0.8);
+        transform: translateY(-50%);
+      }
+      /* Vertical line */
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        left: 50%; top: 0;
+        width: 2px; height: 100%;
+        background: rgba(0,255,255,0.8);
+        transform: translateX(-50%);
+      }
+      #hitmarker {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 30px;
+        height: 30px;
+        transform: translate(-50%, -50%) rotate(45deg);
+        pointer-events: none;
+        z-index: 51;
+        display: none;
+      }
+      #hitmarker::before, #hitmarker::after {
+        content: '';
+        position: absolute;
+        background: #ff0000;
+      }
+      #hitmarker::before { width: 100%; height: 2px; top: 14px; left: 0; }
+      #hitmarker::after { width: 2px; height: 100%; top: 0; left: 14px; }
+
+      #scope {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: radial-gradient(circle, transparent 38%, rgba(0,0,0,0.92) 62%);
+        z-index: 49;
+        display: none;
+        pointer-events: none;
+      }
+      /* Scope horizontal line */
+      #scope::before {
+        content: '';
+        position: absolute;
+        top: 50%; left: 0;
+        width: 100%; height: 2px;
+        background: rgba(0, 255, 0, 0.6);
+        transform: translateY(-50%);
+      }
+      /* Scope vertical line */
+      #scope::after {
+        content: '';
+        position: absolute;
+        left: 50%; top: 0;
+        width: 2px; height: 100%;
+        background: rgba(0, 255, 0, 0.6);
+        transform: translateX(-50%);
+      }
+
+      #engageBtn:hover {
+        background: #00ffff;
+        color: black;
+        box-shadow: 0 0 40px #00ffff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="crosshair"></div>
+    <div id="hitmarker"></div>
+    <div id="scope"></div>
+    <div id="overlay">
+      <h1>PROJECT: VANGUARD</h1>
+      <p>ELITE URBAN TACTICAL OPERATIONS</p>
+      <div class="controls">
+        WASD: MOVE | SPACE: JUMP | CLICK: FIRE | V: CAMERA
+      </div>
+      <div id="loading-container">
+        <div id="loading-bar"></div>
+      </div>
+      <button id="engageBtn">ENGAGE</button>
+    </div>
+    <div id="app"></div>
+
+    <script type="module" src="/src/main.ts" onerror="alert('CRITICAL: /src/main.ts failed to load. Please ensure you are using npm run dev.')"></script>
+    <script>
+      const btn = document.getElementById("engageBtn");
+      const loadingContainer = document.getElementById("loading-container");
+      const loadingBar = document.getElementById("loading-bar");
+      
+      let loadedAssets = 0;
+      const totalEssentialAssets = 4; // Map, Player, Weapon, Enemy
+      const progressMap = new Map();
+
+      window.addEventListener('asset-progress', (e) => {
+        loadingContainer.style.display = 'block';
+        btn.style.opacity = '0.5';
+        btn.innerText = 'DOWNLOADING... ' + Math.round(e.detail.percent) + '%';
+        btn.disabled = true;
+
+        progressMap.set(e.detail.name, e.detail.percent);
+        
+        let totalPercent = 0;
+        progressMap.forEach(val => totalPercent += val);
+        const overallProgress = Math.min(totalPercent / (totalEssentialAssets * 100) * 100, 100);
+        
+        loadingBar.style.width = overallProgress + '%';
+
+        if (overallProgress >= 90) {
+          btn.style.opacity = '1';
+          btn.innerText = 'ENGAGE';
+          btn.disabled = false;
+        }
+      });
+
+      window.addEventListener('ads-toggle', (e) => {
+        const scope = document.getElementById('scope');
+        const crosshair = document.getElementById('crosshair');
+        if (e.detail.active) {
+          scope.style.display = 'block';
+          crosshair.style.display = 'none';
+        } else {
+          scope.style.display = 'none';
+          crosshair.style.display = 'block';
+        }
+      });
+
+      btn.onclick = function() {
+        if (window.startGame) {
+          console.log("ENGAGE clicked - Launching Project Vanguard");
+          document.getElementById('overlay').style.display = 'none';
+          window.startGame();
+        } else {
+          alert("The game engine is still initializing. Please wait until the bar is full.");
+        }
+      };
+    </script>
+  </body>
+</html>
